@@ -8,7 +8,7 @@
     <ProjectGuid>{9AC11E7B-F840-4170-8656-B5FD438C4AF0}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>AqT_Utl</RootNamespace>
-    <AssemblyName>AqtUtl</AssemblyName>
+    <AssemblyName>AqtUtl4VoiceDrop</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <LangVersion>8.0</LangVersion>
     <FileAlignment>512</FileAlignment>

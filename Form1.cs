@@ -279,7 +279,7 @@ namespace AqT_Utl
                         string dragFilePath = last_generated_exo;
                         var dataObject = new DataObject(DataFormats.FileDrop, new string[] { dragFilePath });
                         dataObject.SetData("Preferred DropEffect", new MemoryStream(new byte[] { 5, 0, 0, 0 }));
-                        GeneratePanel.DoDragDrop(dataObject, DragDropEffects.Copy);
+                        // GeneratePanel.DoDragDrop(dataObject, DragDropEffects.Copy);
                     }
                     
 
@@ -325,7 +325,7 @@ namespace AqT_Utl
                         }
                         else
                         {
-                            GenerateLabel.Text = "ここをD&&Dしてください";
+                            GenerateLabel.Text = "D&&D機能は廃止しました";
                         }
 
                     }
@@ -360,11 +360,11 @@ namespace AqT_Utl
             generated = false;
             if(Properties.Settings.Default.useGCMZ) //GCMZモード有効時
             {
-                GenerateLabel.Text = "拡張編集に挿入(Ctrl + Insert)";
+                GenerateLabel.Text = "拡張編集に挿入(Ctrl + Enter)";
             }
             else
             {
-                GenerateLabel.Text = "音声を生成(Ctrl + Insert)";
+                GenerateLabel.Text = "音声を生成(Ctrl + Enter)";
             }
         }
 
@@ -376,7 +376,7 @@ namespace AqT_Utl
                 if(gcmzAPI == null) gcmzAPI = new GcmzAPI();
 
 
-                GenerateLabel.Text = "AviUtlに挿入(Ctrl + Insert)";
+                GenerateLabel.Text = "AviUtlに挿入(Ctrl + Enter)";
                 Size formsize = this.Size;
 
                 RightSpritContainer.SplitterDistance = this.ClientSize.Height /2;
@@ -384,7 +384,7 @@ namespace AqT_Utl
             }
             else
             {
-                GenerateLabel.Text = "音声を生成(Ctrl + Insert)";
+                GenerateLabel.Text = "音声を生成(Ctrl + Enter)";
 
                 RightSpritContainer.SplitterDistance = 0;
                 RightSpritContainer.IsSplitterFixed = true;
@@ -432,10 +432,6 @@ namespace AqT_Utl
 
         private void Form1_KeyDown(object sender, KeyEventArgs e)       //ショートカットイベントを記述
         {
-            if(e.KeyData == (Keys.Control | Keys.Insert))
-            {
-                generate(true);
-            }
             if(e.KeyData == Keys.F5)
             {
                 object kariObject = new object();
@@ -448,6 +444,11 @@ namespace AqT_Utl
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)    //Form標準のと重複するショートカットイベントはこっちに記述
         {
+            if (keyData == (Keys.Control | Keys.Enter))
+            {
+                generate(true);
+                return true; // 処理をここで終了させ、TextBoxへの改行挿入を物理的にキャンセルする
+            }
             if (keyData == (Keys.Control | Keys.Shift | Keys.I))   //Ctrl + Shift + I
             {
                 if (ProfileListBox.SelectedIndex > 0)

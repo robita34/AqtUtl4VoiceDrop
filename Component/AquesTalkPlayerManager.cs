@@ -78,10 +78,31 @@ namespace AqT_Utl
                 }
             }
 
-            Random random = new Random();
-            string filename = DateTime.Now.ToString("yyyyMMddHHmmss") + random.Next(1000,9999);
+            string timeStamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+            
+            // ① ファイル名に使えない禁止文字を正規表現で一括削除
+            string safeJimaku = System.Text.RegularExpressions.Regex.Replace(jimaku, @"[\\/:*?""<>|\s\t\n\r]", "");
 
+            // ② 切り出す文字数を最大7文字に制限（安全な切り出し）
+            if (safeJimaku.Length > 7)
+            {
+                safeJimaku = safeJimaku.Substring(0, 7);
+            }
+
+            // ③ 記号や改行のみで文字が消滅した場合、OSのエラーを防ぐためのフォールバック
+            if (string.IsNullOrEmpty(safeJimaku))
+            {
+                safeJimaku = "voice";
+            }
+
+            // ④ 理想の命名ルールでベース名を作成
+            string filename = p.ProfileName + "_" + safeJimaku + "_" + timeStamp;
+
+            // 最終的なWAVファイルのフルパス
             string filepath = output_folder + "\\" + filename + ".wav";
+
+            // 最終的なTXTファイルのフルパス
+            string txtFilepath = output_folder + "\\" + filename + ".txt";
 
             string 引数 = "/T \"" + hatsuon + "\" " + "/P \"" + p.UsePreset + "\" " + "/W \"" + filepath + "\"";
 
@@ -123,17 +144,27 @@ namespace AqT_Utl
             }
 
 
+            try
+            {
+                // Windowsの標準文字コード「Shift-JIS (CodePage: 932)」を指定
+                System.Text.Encoding sjis = System.Text.Encoding.GetEncoding(932);
+                
+                // 引数で渡ってきた字幕文字列（jimaku）をファイルに上書き保存
+                // Javaの Files.writeString や PHPの file_put_contents と同じ挙動です
+                System.IO.File.WriteAllText(txtFilepath, jimaku, sjis);
+            }
+            catch (System.Exception ex)
+            {
+                // 万が一テキストの書き込みに失敗してもログを出すだけで全体の処理は止めない
+                System.Console.WriteLine("TXTファイルの生成に失敗しました: " + ex.Message);
+            }
+
             if (interim)    //仮モード有効時、生成した音声ファイルを削除し終了する
             {
                 string wavfilepath = output_folder + "\\" + filename + ".wav";
                 File.Delete(wavfilepath);
                 return "delete_success";
             }
-
-            frameCount += p.Hosei;
-
-            ExoGenerate exoGenerate = new ExoGenerate();
-            exoGenerate.make_exo(p, jimaku, filepath, frameCount, output_folder + "\\" + filename + ".exo");
 
             return output_folder + "\\" + filename + ".exo";
         }
