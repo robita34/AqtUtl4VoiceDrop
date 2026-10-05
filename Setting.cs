@@ -24,7 +24,11 @@ namespace AqT_Utl
             output_folderBox.Text = Properties.Settings.Default.output_folder;
             FPScomboBox.Text = Properties.Settings.Default.fps_AviUtl.ToString();
             JimakuCheck.Checked = Properties.Settings.Default.jimakuCopy_startup;
-            GCMZcheck.Checked = Properties.Settings.Default.useGCMZ;
+            
+            // ① AviUtl2(Voice Drop)環境では不要なため、チェックを外し、操作を完全に無効化（グレーアウト）する
+            GCMZcheck.Checked = false;
+            GCMZcheck.Enabled = false;
+
             TopMostCheck.Checked = Properties.Settings.Default.TopMost;
 
             KaisetsuTip.SetToolTip(label1, "音声出力先のフォルダパスを指定します。\\から書き始めると相対パスで指定されます。");
