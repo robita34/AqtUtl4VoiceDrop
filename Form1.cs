@@ -22,6 +22,7 @@ namespace AqT_Utl
         SettingLoader settingLoader;
         ProfileLoader profileLoader;
         GcmzAPI gcmzAPI;
+        ApiServer apiServer;
 
         bool generated = false;
         bool setAquesTalkPlayer = false;
@@ -72,6 +73,26 @@ namespace AqT_Utl
 
             this.DoubleBuffered = true;     //Formのダブルバッファリングを有効化
 
+            StartApiServer();
+        }
+
+        void StartApiServer()
+        {
+            int port = SettingLoader.ApiPort;
+            if (port <= 0) return;
+
+            //APIスレッドからはUIスレッド経由でプロファイルのコピーを受け取る
+            apiServer = new ApiServer(playerManager, () => (List<SerifProfile>)Invoke(new Func<List<SerifProfile>>(() => serifProfiles.ToList())));
+            try
+            {
+                apiServer.Start(port);
+                this.Text += "   API:" + port;
+            }
+            catch (Exception ex)
+            {
+                apiServer = null;
+                MessageBox.Show("APIサーバーを起動できませんでした（ポート " + port + "）。\n" + ex.Message);
+            }
         }
 
 
@@ -222,9 +243,10 @@ namespace AqT_Utl
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
             profileLoader.Save(serifProfiles);
+            apiServer?.Stop();
         }
 
-        
+
 
         private void JimakuBox_TextChanged(object sender, EventArgs e)
         {

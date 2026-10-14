@@ -14,6 +14,11 @@ namespace AqT_Utl.Component
 {
     internal class SettingLoader
     {
+        public const int DefaultApiPort = 50121;
+
+        //APIの待ち受けポート。0以下でAPI無効（setting.jsonの api_port で変更）
+        public static int ApiPort = DefaultApiPort;
+
         public void Load()
         {
             string json;
@@ -34,6 +39,7 @@ namespace AqT_Utl.Component
             Properties.Settings.Default.fps_AviUtl = setting.fps_AviUtl;
             Properties.Settings.Default.useGCMZ = setting.useGCMZ;
             Properties.Settings.Default.TopMost = setting.TopMost;
+            ApiPort = setting.api_port ?? DefaultApiPort;     //旧バージョンのsetting.jsonには無いので既定値
 
             if (setting.last_version != Assembly.GetExecutingAssembly().GetName().Version)      //最後に起動したときのバージョンが今のバージョンと異なる場合に処理
             {
@@ -54,6 +60,7 @@ namespace AqT_Utl.Component
             setting.fps_AviUtl = Properties.Settings.Default.fps_AviUtl;
             setting.useGCMZ = Properties.Settings.Default.useGCMZ;
             setting.TopMost = Properties.Settings.Default.TopMost;
+            setting.api_port = ApiPort;
 
             JsonSerializerOptions options = new JsonSerializerOptions
             {
@@ -76,5 +83,6 @@ namespace AqT_Utl.Component
         public int fps_AviUtl { get; set; }
         public bool useGCMZ { get; set; }
         public bool TopMost { get; set; }
+        public int? api_port { get; set; }
     }
 }

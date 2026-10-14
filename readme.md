@@ -1,4 +1,4 @@
-﻿# AqtUtl4VoiceDrop (v2.3.0.0)
+﻿# AqtUtl4VoiceDrop (v2.4.0.0)
 
 AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に完全最適化させた、AqtUtlのフロントエンドカスタムビルドです。
 （本家リポジトリ：ChibiBouningen/AqtUtl をベースに改造）
@@ -22,6 +22,27 @@ AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に
 7. **環境およびメタデータのクリーンアップ**
    - プロセス名・製品名を `AqtUtl_VoiceDrop`、バージョンを `v2.3.0.0` へ正規書き換え。
    - Windows側から再コンパイルが走る自動化スクリプト `build.bat` を追加。
+
+## ローカルAPI
+起動中は `http://localhost:50121/` でAPIを待ち受けます（タイトルバーに `API:50121` と表示）。
+ポートは `setting.json` の `api_port` で変更、`0` で無効化。生成ファイルはGUIと同じ命名・出力フォルダです。
+
+| メソッド | パス | 内容 |
+|---|---|---|
+| GET | `/` | 動作確認 |
+| GET | `/profiles` | プロファイル一覧 |
+| POST | `/synthesis` | `{"profile":"名前","text":"字幕","kana":"発音(省略可)"}` → wav+txtを保存 |
+| POST | `/batch` | `{"lines":[{...},{...}],"interval_ms":500}` → 上から順に1件ずつ保存（`interval_ms` は行間の待ち時間・省略可。同名衝突時は秒が進むまで待機） |
+| POST | `/play` | `/synthesis` と同形式。試聴のみ |
+
+PowerShellからの例（日本語はUTF-8バイト列で送る）:
+```powershell
+$body = @{ lines = @(
+  @{ profile = "ゆっくりれいむ"; text = "こんにちは" },
+  @{ profile = "ゆっくりれいむ"; text = "今日は晴れ"; kana = "きょうははれ" }
+) } | ConvertTo-Json -Depth 3
+Invoke-RestMethod -Method Post http://localhost:50121/batch -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($body))
+```
 
 ## ビルド方法
 WindowsのPowerShellまたはエクスプローラーから、ルートにある `build.bat` を実行（ダブルクリック）するだけで、`bin/Release/` 配下に最新のカスタム版exeが出荷されます。
