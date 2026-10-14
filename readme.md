@@ -1,4 +1,4 @@
-﻿# AqtUtl4VoiceDrop (v2.3.0.0)
+﻿# AqtUtl4VoiceDrop (v2.4.0.0)
 
 AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に完全最適化させた、AqtUtlのフロントエンドカスタムビルドです。
 （本家リポジトリ：ChibiBouningen/AqtUtl をベースに改造）
