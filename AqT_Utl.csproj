@@ -286,6 +286,7 @@
     <Compile Include="AddSerifProfile.Designer.cs">
       <DependentUpon>AddSerifProfile.cs</DependentUpon>
     </Compile>
+    <Compile Include="Component\ApiServer.cs" />
     <Compile Include="Component\AquesTalkPlayerManager.cs" />
     <Compile Include="Component\ExoGenerate.cs" />
     <Compile Include="Component\GcmzAPI.cs" />
