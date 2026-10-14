@@ -158,8 +158,9 @@ namespace AqT_Utl.Component
             string kana = string.IsNullOrEmpty(line.Kana) ? line.Text : line.Kana;
 
             VoiceGenerateResult r = playerManager.Synthesize(kana, line.Text, p, play, play);
-            if (play) return new { profile = p.ProfileName, seconds = Math.Round(r.Seconds, 3) };
-            return new { profile = p.ProfileName, text = line.Text, wav = r.WavPath, txt = r.TxtPath, seconds = Math.Round(r.Seconds, 3), frames = r.FrameCount };
+            decimal seconds = Math.Round((decimal)r.Seconds, 3);     //doubleのままだと 0.26200000000000001 のように出力される
+            if (play) return new { profile = p.ProfileName, seconds };
+            return new { profile = p.ProfileName, text = line.Text, wav = r.WavPath, txt = r.TxtPath, seconds, frames = r.FrameCount };
         }
 
         static SerifProfile FindProfile(string key, List<SerifProfile> profiles)
