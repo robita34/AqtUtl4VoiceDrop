@@ -59,6 +59,7 @@ namespace AqT_Utl
 
             JimakuCopy_Check.Checked = Properties.Settings.Default.jimakuCopy_startup;
             JimakuCopyCheck_reflect();
+            OutputFile_Check.Checked = SettingLoader.UiOutput;
             resetGenerated();
             reloadSettings();
 
@@ -70,6 +71,7 @@ namespace AqT_Utl
             KaisetsuTip.SetToolTip(ProfileListBox, "右クリックでプロファイルの作成や編集ができます。");
             KaisetsuTip.SetToolTip(JimakuCopy_Check, "発音記号を字幕に合わせます。");
             KaisetsuTip.SetToolTip(PlayPanel, "クリックで音声を試聴します。ファイルには保存されません。");
+            KaisetsuTip.SetToolTip(OutputFile_Check, "オフにすると、生成(Ctrl + Enter)は試聴のみでファイルを出力しません。APIからの生成には影響しません。");
 
             this.DoubleBuffered = true;     //Formのダブルバッファリングを有効化
 
@@ -325,6 +327,12 @@ namespace AqT_Utl
                 }
                 else
                 {                //未生成の場合
+                    if (!OutputFile_Check.Checked)  //ファイル出力オフ時は試聴のみ
+                    {
+                        PlayPanel_Click(null, EventArgs.Empty);
+                        return;
+                    }
+
                     int AviutlFPS = Properties.Settings.Default.fps_AviUtl;
 
                     if (serifProfiles.Count == 0)
@@ -361,6 +369,13 @@ namespace AqT_Utl
             }
         }
 
+        private void OutputFile_Check_CheckedChanged(object sender, EventArgs e)
+        {
+            SettingLoader.UiOutput = OutputFile_Check.Checked;
+            settingLoader.Save();
+            resetGenerated();
+        }
+
         private void PlayPanel_Click(object sender, EventArgs e)    //再生パネルをクリック
         {
             if(setAquesTalkPlayer)
@@ -380,7 +395,11 @@ namespace AqT_Utl
         void resetGenerated()   //生成リセット
         {
             generated = false;
-            if(Properties.Settings.Default.useGCMZ) //GCMZモード有効時
+            if (!OutputFile_Check.Checked)  //ファイル出力オフ時
+            {
+                GenerateLabel.Text = "試聴のみ(Ctrl + Enter)";
+            }
+            else if(Properties.Settings.Default.useGCMZ) //GCMZモード有効時
             {
                 GenerateLabel.Text = "拡張編集に挿入(Ctrl + Enter)";
             }

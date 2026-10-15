@@ -19,6 +19,9 @@ namespace AqT_Utl.Component
         //APIの待ち受けポート。0以下でAPI無効（setting.jsonの api_port で変更）
         public static int ApiPort = DefaultApiPort;
 
+        //UI操作でファイルを出力するか（falseなら生成ボタンは試聴のみ。APIには影響しない）
+        public static bool UiOutput = true;
+
         public void Load()
         {
             string json;
@@ -40,6 +43,7 @@ namespace AqT_Utl.Component
             Properties.Settings.Default.useGCMZ = setting.useGCMZ;
             Properties.Settings.Default.TopMost = setting.TopMost;
             ApiPort = setting.api_port ?? DefaultApiPort;     //旧バージョンのsetting.jsonには無いので既定値
+            UiOutput = setting.ui_output ?? true;
 
             if (setting.last_version != Assembly.GetExecutingAssembly().GetName().Version)      //最後に起動したときのバージョンが今のバージョンと異なる場合に処理
             {
@@ -61,6 +65,7 @@ namespace AqT_Utl.Component
             setting.useGCMZ = Properties.Settings.Default.useGCMZ;
             setting.TopMost = Properties.Settings.Default.TopMost;
             setting.api_port = ApiPort;
+            setting.ui_output = UiOutput;
 
             JsonSerializerOptions options = new JsonSerializerOptions
             {
@@ -84,5 +89,6 @@ namespace AqT_Utl.Component
         public bool useGCMZ { get; set; }
         public bool TopMost { get; set; }
         public int? api_port { get; set; }
+        public bool? ui_output { get; set; }
     }
 }
