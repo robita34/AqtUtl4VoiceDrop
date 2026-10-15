@@ -14,6 +14,7 @@ namespace AqT_Utl.Component
 {
     //ローカル専用のHTTP API。Claude等から台本を流し込み、VoiceDrop用のwav+txtを一括生成するためのもの
     //  GET  /            … 動作確認
+    //  GET  /help        … 使い方（エンドポイント一覧と例）
     //  GET  /profiles    … プロファイル一覧
     //  POST /synthesis   … {"profile":"名前かId","text":"字幕","kana":"発音(省略時は字幕と同じ)"} → wav+txtを保存
     //  POST /batch       … {"lines":[{...},{...}]} → 上から順に保存
@@ -88,8 +89,15 @@ namespace AqT_Utl.Component
                 {
                     app = "AqtUtl_VoiceDrop",
                     version = Assembly.GetExecutingAssembly().GetName().Version.ToString(),
-                    playerFound = playerManager.IsRegistered
+                    playerFound = playerManager.IsRegistered,
+                    help = "GET /help で使い方を表示"
                 });
+                return;
+            }
+
+            if (method == "GET" && (path == "/help" || path == "/usage"))
+            {
+                Respond(context.Response, 200, Help());
                 return;
             }
 
@@ -147,7 +155,49 @@ namespace AqT_Utl.Component
                 return;
             }
 
-            Respond(context.Response, 404, new { error = "不明なエンドポイントです: " + method + " " + req.Url.AbsolutePath });
+            Respond(context.Response, 404, new { error = "不明なエンドポイントです: " + method + " " + req.Url.AbsolutePath, help = "GET /help で使い方を表示" });
+        }
+
+        object Help()
+        {
+            return new
+            {
+                description = "AquesTalkで音声を生成し、出力フォルダに「プロファイル名_セリフ先頭7文字_タイムスタンプ.wav/.txt」を保存するローカルAPI。VoiceDropがこのフォルダを監視してAviUtl2に自動配置する。",
+                version = Assembly.GetExecutingAssembly().GetName().Version.ToString(),
+                encoding = "リクエストのボディはUTF-8のJSON（Content-Type: application/json; charset=utf-8）",
+                endpoints = new object[]
+                {
+                    new { method = "GET",  path = "/",         description = "動作確認（バージョン、AquesTalkPlayerの有無）" },
+                    new { method = "GET",  path = "/help",     description = "この使い方（/usage でも可）" },
+                    new { method = "GET",  path = "/profiles", description = "プロファイル（キャラ）一覧。profile にはここの name を指定する" },
+                    new
+                    {
+                        method = "POST", path = "/synthesis",
+                        description = "1行を生成してwav+txtを保存する",
+                        body = new { profile = "プロファイル名（必須）", text = "字幕テキスト（必須、txtに保存される）", kana = "AquesTalkに読ませる発音（省略時はtextを読む）" },
+                        example = new { profile = "ゆっくりれいむ", text = "今日は晴れ", kana = "きょうははれ" }
+                    },
+                    new
+                    {
+                        method = "POST", path = "/batch",
+                        description = "複数行を上から順に1件ずつ生成する。1行失敗しても残りは続行し、失敗があればHTTP 207",
+                        body = new { lines = "/synthesis と同じ形式の配列（必須）", interval_ms = "行間の待ち時間ミリ秒（省略時0）" },
+                        example = new { lines = new object[] { new { profile = "ゆっくりれいむ", text = "こんにちは" }, new { profile = "ゆっくりれいむ", text = "今日は晴れ", kana = "きょうははれ" } } }
+                    },
+                    new
+                    {
+                        method = "POST", path = "/play",
+                        description = "試聴のみ（音が鳴る。ファイルは残らない）。ボディは /synthesis と同じ",
+                        example = new { profile = "ゆっくりれいむ", text = "テスト" }
+                    }
+                },
+                notes = new[]
+                {
+                    "難読漢字・固有名詞・英字は kana にひらがなで読みを指定すると確実",
+                    "生成はUI操作と合わせて直列化される。同名ファイルになる場合はタイムスタンプが進むまで待つ",
+                    "ポートは setting.json の api_port で変更（0で無効）"
+                }
+            };
         }
 
         object Generate(LineRequest line, List<SerifProfile> profiles, bool play)

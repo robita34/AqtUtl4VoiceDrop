@@ -1,4 +1,4 @@
-﻿# AqtUtl4VoiceDrop (v2.4.0.0)
+﻿# AqtUtl4VoiceDrop (v2.4.1.0)
 
 AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に完全最適化させた、AqtUtlのフロントエンドカスタムビルドです。
 （本家リポジトリ：ChibiBouningen/AqtUtl をベースに改造）
@@ -30,6 +30,7 @@ AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に
 | メソッド | パス | 内容 |
 |---|---|---|
 | GET | `/` | 動作確認 |
+| GET | `/help` | 使い方（エンドポイント一覧と例。`/usage` でも可） |
 | GET | `/profiles` | プロファイル一覧 |
 | POST | `/synthesis` | `{"profile":"名前","text":"字幕","kana":"発音(省略可)"}` → wav+txtを保存 |
 | POST | `/batch` | `{"lines":[{...},{...}],"interval_ms":500}` → 上から順に1件ずつ保存（`interval_ms` は行間の待ち時間・省略可。同名衝突時は秒が進むまで待機） |
