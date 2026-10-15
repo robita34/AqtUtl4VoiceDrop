@@ -46,6 +46,7 @@
             this.JimakuBox = new System.Windows.Forms.TextBox();
             this.HatsuonSprit = new System.Windows.Forms.SplitContainer();
             this.JimakuCopy_Check = new System.Windows.Forms.CheckBox();
+            this.OutputFile_Check = new System.Windows.Forms.CheckBox();
             this.HatsuonLabel = new System.Windows.Forms.Label();
             this.HatsuonBox = new System.Windows.Forms.TextBox();
             this.RightSpritContainer = new System.Windows.Forms.SplitContainer();
@@ -390,6 +391,7 @@
             // GeneratePanel
             // 
             this.GeneratePanel.BackColor = System.Drawing.Color.Gainsboro;
+            this.GeneratePanel.Controls.Add(this.OutputFile_Check);
             this.GeneratePanel.Controls.Add(this.GenerateLabel);
             this.GeneratePanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.GeneratePanel.Location = new System.Drawing.Point(0, 0);
@@ -398,7 +400,21 @@
             this.GeneratePanel.Size = new System.Drawing.Size(194, 384);
             this.GeneratePanel.TabIndex = 0;
             this.GeneratePanel.MouseDown += new System.Windows.Forms.MouseEventHandler(this.GeneratePanel_MouseDown);
-            // 
+            //
+            // OutputFile_Check
+            //
+            this.OutputFile_Check.AutoSize = true;
+            this.OutputFile_Check.Checked = true;
+            this.OutputFile_Check.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.OutputFile_Check.Location = new System.Drawing.Point(6, 6);
+            this.OutputFile_Check.Margin = new System.Windows.Forms.Padding(4);
+            this.OutputFile_Check.Name = "OutputFile_Check";
+            this.OutputFile_Check.Size = new System.Drawing.Size(105, 19);
+            this.OutputFile_Check.TabIndex = 1;
+            this.OutputFile_Check.Text = "ファイルを出力";
+            this.OutputFile_Check.UseVisualStyleBackColor = true;
+            this.OutputFile_Check.CheckedChanged += new System.EventHandler(this.OutputFile_Check_CheckedChanged);
+            //
             // GenerateLabel
             // 
             this.GenerateLabel.Anchor = System.Windows.Forms.AnchorStyles.None;
@@ -527,6 +543,7 @@
         private System.Windows.Forms.SplitContainer HatsuonSprit;
         private System.Windows.Forms.TextBox HatsuonBox;
         private System.Windows.Forms.CheckBox JimakuCopy_Check;
+        private System.Windows.Forms.CheckBox OutputFile_Check;
         private System.Windows.Forms.ContextMenuStrip ProfileListContextMenu;
         private System.Windows.Forms.ToolStripMenuItem プロファイルを追加ToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem プロファイルを編集ToolStripMenuItem;

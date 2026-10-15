@@ -1,4 +1,4 @@
-﻿# AqtUtl4VoiceDrop (v2.4.1.0)
+﻿# AqtUtl4VoiceDrop (v2.5.0.0)
 
 AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に完全最適化させた、AqtUtlのフロントエンドカスタムビルドです。
 （本家リポジトリ：ChibiBouningen/AqtUtl をベースに改造）
@@ -22,6 +22,10 @@ AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に
 7. **環境およびメタデータのクリーンアップ**
    - プロセス名・製品名を `AqtUtl_VoiceDrop`、バージョンを `v2.3.0.0` へ正規書き換え。
    - Windows側から再コンパイルが走る自動化スクリプト `build.bat` を追加。
+
+## UIのファイル出力切り替え
+生成エリア左上の「ファイルを出力」をオフにすると、生成（クリック / `Ctrl + Enter`）は試聴のみになり、wav/txtを出力しません（VoiceDropに取り込まれない）。
+状態は `setting.json` の `ui_output` に保存されます。APIからの生成には影響しません。
 
 ## ローカルAPI
 起動中は `http://localhost:50121/` でAPIを待ち受けます（タイトルバーに `API:50121` と表示）。
