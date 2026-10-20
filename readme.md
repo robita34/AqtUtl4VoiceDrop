@@ -1,4 +1,4 @@
-﻿# AqtUtl4VoiceDrop (v2.5.0.0)
+﻿# AqtUtl4VoiceDrop (v2.5.1.0)
 
 AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に完全最適化させた、AqtUtlのフロントエンドカスタムビルドです。
 （本家リポジトリ：ChibiBouningen/AqtUtl をベースに改造）
@@ -28,8 +28,8 @@ AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に
 状態は `setting.json` の `ui_output` に保存されます。APIからの生成には影響しません。
 
 ## ローカルAPI
-起動中は `http://localhost:50121/` でAPIを待ち受けます（タイトルバーに `API:50121` と表示）。
-ポートは `setting.json` の `api_port` で変更、`0` で無効化。生成ファイルはGUIと同じ命名・出力フォルダです。
+起動中は `http://localhost:47121/` でAPIを待ち受けます（タイトルバーに `API:47121` と表示）。
+ポートは `setting.json` の `api_port` で変更、`0` で無効化。49152以上のポートはWindowsが予約して使えなくなることがあるので避けてください（v2.5.0.0以前の既定 `50121` は起動時に自動で `47121` へ移行）。生成ファイルはGUIと同じ命名・出力フォルダです。
 
 | メソッド | パス | 内容 |
 |---|---|---|
@@ -46,7 +46,7 @@ $body = @{ lines = @(
   @{ profile = "ゆっくりれいむ"; text = "こんにちは" },
   @{ profile = "ゆっくりれいむ"; text = "今日は晴れ"; kana = "きょうははれ" }
 ) } | ConvertTo-Json -Depth 3
-Invoke-RestMethod -Method Post http://localhost:50121/batch -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($body))
+Invoke-RestMethod -Method Post http://localhost:47121/batch -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($body))
 ```
 
 ## ビルド方法
