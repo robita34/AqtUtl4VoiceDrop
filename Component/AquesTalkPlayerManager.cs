@@ -84,7 +84,8 @@ namespace AqT_Utl
         }
 
         //音声を生成する本体。失敗時は VoiceGenerateException を投げる（UIを出さないのでAPIからも呼べる）
-        public VoiceGenerateResult Synthesize(string hatsuon, string jimaku, SerifProfile p, bool interim, bool playSound)
+        //folder/fileName はAPI用。省略時は設定の出力フォルダと既定の命名ルールを使う
+        public VoiceGenerateResult Synthesize(string hatsuon, string jimaku, SerifProfile p, bool interim, bool playSound, string folder = null, string fileName = null)
         {
             if (PlayerPath == null) throw new VoiceGenerateException("aquestalkplayer/AquesTalkPlayer.exeが見つかりません");
 
@@ -92,6 +93,8 @@ namespace AqT_Utl
             {
                 int fps = Properties.Settings.Default.fps_AviUtl;
                 string output_folder = ResolveOutputFolder();
+                if (!string.IsNullOrWhiteSpace(folder)) output_folder = ResolveCustomFolder(folder, output_folder);
+                if (!string.IsNullOrWhiteSpace(fileName)) fileName = ValidateFileName(fileName, output_folder);
 
                 if (hatsuon == null) hatsuon = "";
                 if (jimaku == null) jimaku = "";
@@ -115,12 +118,12 @@ namespace AqT_Utl
 
                 // ④ 理想の命名ルールでベース名を作成
                 //    連続生成で同名になる場合は、命名ルールを変えずにタイムスタンプが進むまで待つ
-                string filename;
-                while (true)
+                string filename = fileName;
+                while (filename == null)
                 {
                     string timeStamp = DateTime.Now.ToString("yyyyMMddHHmmss");
-                    filename = p.ProfileName + "_" + safeJimaku + "_" + timeStamp;
-                    if (!File.Exists(output_folder + "\\" + filename + ".wav")) break;
+                    string candidate = p.ProfileName + "_" + safeJimaku + "_" + timeStamp;
+                    if (!File.Exists(output_folder + "\\" + candidate + ".wav")) { filename = candidate; break; }
                     Thread.Sleep(100);
                 }
 
@@ -211,6 +214,41 @@ namespace AqT_Utl
             if (Directory.Exists(output_folder)) return output_folder;
 
             throw new VoiceGenerateException("ボイス生成フォルダの設定が正しくありません。");
+        }
+
+        //API指定の出力先。「C:\～」やUNCはそのまま、それ以外は既定の出力フォルダからの相対パス。無ければ作成する
+        static string ResolveCustomFolder(string folder, string defaultFolder)
+        {
+            folder = folder.Trim().Replace('/', '\\');
+            bool absolute = (folder.Length >= 3 && folder[1] == ':' && folder[2] == '\\') || folder.StartsWith("\\\\");
+            string path = absolute ? folder : Path.Combine(defaultFolder, folder.TrimStart('\\'));
+
+            try
+            {
+                path = Path.GetFullPath(path).TrimEnd('\\');
+                Directory.CreateDirectory(path);
+            }
+            catch (Exception ex)
+            {
+                throw new VoiceGenerateException("出力先フォルダ「" + folder + "」を使えません: " + ex.Message);
+            }
+            return path;
+        }
+
+        //API指定のファイル名（拡張子なし）。使えない文字があればエラー、既存ファイルは上書きせずエラー
+        static string ValidateFileName(string fileName, string folder)
+        {
+            fileName = fileName.Trim();
+            if (fileName.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) || fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+                fileName = fileName.Substring(0, fileName.Length - 4);
+
+            if (fileName == "" || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                throw new VoiceGenerateException("ファイル名「" + fileName + "」に使えない文字が含まれています（\\ / : * ? \" < > | など）");
+
+            if (File.Exists(Path.Combine(folder, fileName + ".wav")) || File.Exists(Path.Combine(folder, fileName + ".txt")))
+                throw new VoiceGenerateException("「" + fileName + "」は出力先に既にあります（上書きはしません）");
+
+            return fileName;
         }
 
     }

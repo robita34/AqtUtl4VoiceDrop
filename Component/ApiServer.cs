@@ -16,8 +16,8 @@ namespace AqT_Utl.Component
     //  GET  /            … 動作確認
     //  GET  /help        … 使い方（エンドポイント一覧と例）
     //  GET  /profiles    … プロファイル一覧
-    //  POST /synthesis   … {"profile":"名前かId","text":"字幕","kana":"発音(省略時は字幕と同じ)"} → wav+txtを保存
-    //  POST /batch       … {"lines":[{...},{...}]} → 上から順に保存
+    //  POST /synthesis   … {"profile":"名前かId","text":"字幕","kana":"発音(省略時は字幕と同じ)","folder":"出力先(省略可)","filename":"名前(省略可)"} → wav+txtを保存
+    //  POST /batch       … {"folder":"全行の出力先(省略可)","lines":[{...},{...}]} → 上から順に保存
     //  POST /play        … /synthesisと同じ形式。試聴のみでファイルは残さない
     internal class ApiServer
     {
@@ -141,9 +141,13 @@ namespace AqT_Utl.Component
                     //VoiceDropの取り込みが追いつくよう、行間に任意の待ち時間を入れる
                     if (i > 0 && batch.Interval_ms > 0) System.Threading.Thread.Sleep(batch.Interval_ms);
 
+                    //行ごとの folder が無ければ、バッチ全体の folder を使う
+                    LineRequest line = batch.Lines[i];
+                    if (line != null && string.IsNullOrWhiteSpace(line.Folder)) line.Folder = batch.Folder;
+
                     try
                     {
-                        results.Add(Generate(batch.Lines[i], profiles, false));
+                        results.Add(Generate(line, profiles, false));
                         okCount++;
                     }
                     catch (VoiceGenerateException ex)
@@ -174,27 +178,43 @@ namespace AqT_Utl.Component
                     {
                         method = "POST", path = "/synthesis",
                         description = "1行を生成してwav+txtを保存する",
-                        body = new { profile = "プロファイル名（必須）", text = "字幕テキスト（必須、txtに保存される）", kana = "AquesTalkに読ませる発音（省略時はtextを読む）" },
-                        example = new { profile = "ゆっくりれいむ", text = "今日は晴れ", kana = "きょうははれ" }
+                        body = new
+                        {
+                            profile = "プロファイル名（必須）",
+                            text = "字幕テキスト（必須、txtに保存される）",
+                            kana = "AquesTalkに読ませる発音（省略時はtextを読む）",
+                            folder = "出力先（省略時は設定の出力フォルダ）。C:\\～ の絶対パス、または出力フォルダからの相対パス。無ければ作成",
+                            filename = "ファイル名・拡張子なし（省略時は「プロファイル名_セリフ先頭7文字_タイムスタンプ」）。同名が既にあればエラー"
+                        },
+                        example = new { profile = "ゆっくりれいむ", text = "今日は晴れ", kana = "きょうははれ", folder = "第3話", filename = "003_れいむ_天気" }
                     },
                     new
                     {
                         method = "POST", path = "/batch",
                         description = "複数行を上から順に1件ずつ生成する。1行失敗しても残りは続行し、失敗があればHTTP 207",
-                        body = new { lines = "/synthesis と同じ形式の配列（必須）", interval_ms = "行間の待ち時間ミリ秒（省略時0）" },
-                        example = new { lines = new object[] { new { profile = "ゆっくりれいむ", text = "こんにちは" }, new { profile = "ゆっくりれいむ", text = "今日は晴れ", kana = "きょうははれ" } } }
+                        body = new { lines = "/synthesis と同じ形式の配列（必須）", folder = "全行の出力先（省略可。行ごとの folder が優先）", interval_ms = "行間の待ち時間ミリ秒（省略時0）" },
+                        example = new
+                        {
+                            folder = "第3話",
+                            lines = new object[]
+                            {
+                                new { profile = "ゆっくりれいむ", text = "こんにちは", filename = "001_挨拶" },
+                                new { profile = "ゆっくりれいむ", text = "今日は晴れ", kana = "きょうははれ", filename = "002_天気" }
+                            }
+                        }
                     },
                     new
                     {
                         method = "POST", path = "/play",
-                        description = "試聴のみ（音が鳴る。ファイルは残らない）。ボディは /synthesis と同じ",
+                        description = "試聴のみ（音が鳴る。ファイルは残らない）。ボディは /synthesis と同じ（folder/filename は無視）",
                         example = new { profile = "ゆっくりれいむ", text = "テスト" }
                     }
                 },
                 notes = new[]
                 {
                     "難読漢字・固有名詞・英字は kana にひらがなで読みを指定すると確実",
-                    "生成はUI操作と合わせて直列化される。同名ファイルになる場合はタイムスタンプが進むまで待つ",
+                    "生成はUI操作と合わせて直列化される。filename省略時に同名ファイルになる場合はタイムスタンプが進むまで待つ",
+                    "VoiceDropに取り込ませるには、folder をVoiceDropの監視フォルダ（またはその配下、VoiceDrop側の設定による）にする",
                     "ポートは setting.json の api_port で変更（0で無効）"
                 }
             };
@@ -207,7 +227,9 @@ namespace AqT_Utl.Component
             SerifProfile p = FindProfile(line.Profile, profiles);
             string kana = string.IsNullOrEmpty(line.Kana) ? line.Text : line.Kana;
 
-            VoiceGenerateResult r = playerManager.Synthesize(kana, line.Text, p, play, play);
+            VoiceGenerateResult r = play
+                ? playerManager.Synthesize(kana, line.Text, p, true, true)
+                : playerManager.Synthesize(kana, line.Text, p, false, false, line.Folder, line.Filename);
             decimal seconds = Math.Round((decimal)r.Seconds, 3);     //doubleのままだと 0.26200000000000001 のように出力される
             if (play) return new { profile = p.ProfileName, seconds };
             return new { profile = p.ProfileName, text = line.Text, wav = r.WavPath, txt = r.TxtPath, seconds, frames = r.FrameCount };
@@ -259,11 +281,14 @@ namespace AqT_Utl.Component
             public string Profile { get; set; }
             public string Text { get; set; }
             public string Kana { get; set; }
+            public string Folder { get; set; }
+            public string Filename { get; set; }
         }
 
         public class BatchRequest
         {
             public List<LineRequest> Lines { get; set; }
+            public string Folder { get; set; }
             public int Interval_ms { get; set; }
         }
     }

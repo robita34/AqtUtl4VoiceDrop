@@ -1,4 +1,4 @@
-﻿# AqtUtl4VoiceDrop (v2.5.1.0)
+# AqtUtl4VoiceDrop (v2.6.0.0)
 
 AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に完全最適化させた、AqtUtlのフロントエンドカスタムビルドです。
 （本家リポジトリ：ChibiBouningen/AqtUtl をベースに改造）
@@ -29,7 +29,7 @@ AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に
 
 ## ローカルAPI
 起動中は `http://localhost:47121/` でAPIを待ち受けます（タイトルバーに `API:47121` と表示）。
-ポートは `setting.json` の `api_port` で変更、`0` で無効化。49152以上のポートはWindowsが予約して使えなくなることがあるので避けてください（v2.5.0.0以前の既定 `50121` は起動時に自動で `47121` へ移行）。生成ファイルはGUIと同じ命名・出力フォルダです。
+ポートは `setting.json` の `api_port` で変更、`0` で無効化。49152以上のポートはWindowsが予約して使えなくなることがあるので避けてください（v2.5.0.0以前の既定 `50121` は起動時に自動で `47121` へ移行）。生成ファイルは既定ではGUIと同じ命名・出力フォルダで、`folder` / `filename` を指定すると変更できます（v2.6.0.0〜）。
 ### ※本APIは同一PC内のローカル連携専用です
 
 | メソッド | パス | 内容 |
@@ -37,15 +37,19 @@ AviUtl2用の音声・字幕自動配置プラグイン **「Voice Drop」** に
 | GET | `/` | 動作確認 |
 | GET | `/help` | 使い方（エンドポイント一覧と例。`/usage` でも可） |
 | GET | `/profiles` | プロファイル一覧 |
-| POST | `/synthesis` | `{"profile":"名前","text":"字幕","kana":"発音(省略可)"}` → wav+txtを保存 |
-| POST | `/batch` | `{"lines":[{...},{...}],"interval_ms":500}` → 上から順に1件ずつ保存（`interval_ms` は行間の待ち時間・省略可。同名衝突時は秒が進むまで待機） |
-| POST | `/play` | `/synthesis` と同形式。試聴のみ |
+| POST | `/synthesis` | `{"profile":"名前","text":"字幕","kana":"発音(省略可)","folder":"出力先(省略可)","filename":"ファイル名(省略可)"}` → wav+txtを保存 |
+| POST | `/batch` | `{"folder":"全行の出力先(省略可)","lines":[{...},{...}],"interval_ms":500}` → 上から順に1件ずつ保存（`interval_ms` は行間の待ち時間・省略可。同名衝突時は秒が進むまで待機） |
+| POST | `/play` | `/synthesis` と同形式。試聴のみ（`folder`/`filename` は無視） |
+
+- `folder`: `C:\～` の絶対パス、または出力フォルダからの相対パス（例 `第3話`）。無ければ作成。`/batch` では行ごとの指定が優先
+- `filename`: 拡張子なしの名前（`.wav` を付けても可）。同名の wav/txt が既にあれば上書きせずエラー
+- VoiceDropに取り込ませるには、`folder` をVoiceDropの監視対象のフォルダにしてください
 
 PowerShellからの例（日本語はUTF-8バイト列で送る）:
 ```powershell
-$body = @{ lines = @(
-  @{ profile = "ゆっくりれいむ"; text = "こんにちは" },
-  @{ profile = "ゆっくりれいむ"; text = "今日は晴れ"; kana = "きょうははれ" }
+$body = @{ folder = "第3話"; lines = @(
+  @{ profile = "ゆっくりれいむ"; text = "こんにちは"; filename = "001_挨拶" },
+  @{ profile = "ゆっくりれいむ"; text = "今日は晴れ"; kana = "きょうははれ"; filename = "002_天気" }
 ) } | ConvertTo-Json -Depth 3
 Invoke-RestMethod -Method Post http://localhost:47121/batch -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($body))
 ```
