@@ -26,6 +26,9 @@ namespace AqT_Utl.Component
         //UI操作でファイルを出力するか（falseなら生成ボタンは試聴のみ。APIには影響しない）
         public static bool UiOutput = true;
 
+        //字幕txtの文字コード（"utf-8" か "shift_jis"。UIとAPIの既定。APIはリクエストごとに変更可）
+        public static string TxtEncodingName = TxtEncoding.Default;
+
         public void Load()
         {
             string json;
@@ -50,6 +53,7 @@ namespace AqT_Utl.Component
             if (ApiPort == OldDefaultApiPort && (setting.last_version == null || setting.last_version < new Version(2, 5, 1, 0)))
                 ApiPort = DefaultApiPort;
             UiOutput = setting.ui_output ?? true;
+            TxtEncodingName = TxtEncoding.Parse(setting.txt_encoding) != null ? setting.txt_encoding : TxtEncoding.Default;     //未設定・不正ならUTF-8
 
             if (setting.last_version != Assembly.GetExecutingAssembly().GetName().Version)      //最後に起動したときのバージョンが今のバージョンと異なる場合に処理
             {
@@ -72,6 +76,7 @@ namespace AqT_Utl.Component
             setting.TopMost = Properties.Settings.Default.TopMost;
             setting.api_port = ApiPort;
             setting.ui_output = UiOutput;
+            setting.txt_encoding = TxtEncodingName;
 
             JsonSerializerOptions options = new JsonSerializerOptions
             {
@@ -96,5 +101,6 @@ namespace AqT_Utl.Component
         public bool TopMost { get; set; }
         public int? api_port { get; set; }
         public bool? ui_output { get; set; }
+        public string txt_encoding { get; set; }
     }
 }

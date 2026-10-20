@@ -18,6 +18,7 @@ namespace AqT_Utl.Component
     //  GET  /profiles    … プロファイル一覧
     //  POST /synthesis   … {"profile":"名前かId","text":"字幕","kana":"発音(省略時は字幕と同じ)","folder":"出力先(省略可)","filename":"名前(省略可)"} → wav+txtを保存
     //  POST /batch       … {"folder":"全行の出力先(省略可)","lines":[{...},{...}]} → 上から順に保存
+    //  どちらも "encoding":"utf-8|shift_jis" でtxtの文字コードを指定可。エラーは {"code":..,"error":..}
     //  POST /play        … /synthesisと同じ形式。試聴のみでファイルは残さない
     internal class ApiServer
     {
@@ -70,9 +71,13 @@ namespace AqT_Utl.Component
                 {
                     Handle(context);
                 }
+                catch (InvalidDataException ex)
+                {
+                    TryRespond(context.Response, 400, new { code = "invalid_json", error = ex.Message });
+                }
                 catch (Exception ex)
                 {
-                    TryRespond(context.Response, 500, new { error = ex.Message });
+                    TryRespond(context.Response, 500, new { code = "internal", error = ex.Message });
                 }
             }
         }
@@ -119,7 +124,7 @@ namespace AqT_Utl.Component
                 }
                 catch (VoiceGenerateException ex)
                 {
-                    Respond(context.Response, 400, new { error = ex.Message });
+                    Respond(context.Response, ex.Code == "exists" ? 409 : 400, new { code = ex.Code, error = ex.Message });
                 }
                 return;
             }
@@ -129,21 +134,22 @@ namespace AqT_Utl.Component
                 BatchRequest batch = ReadBody<BatchRequest>(req);
                 if (batch?.Lines == null || batch.Lines.Count == 0)
                 {
-                    Respond(context.Response, 400, new { error = "linesが空です" });
+                    Respond(context.Response, 400, new { code = "empty_lines", error = "linesが空です" });
                     return;
                 }
 
                 List<SerifProfile> profiles = getProfiles();
                 var results = new List<object>();
-                int okCount = 0;
+                int okCount = 0, skippedCount = 0;
                 for (int i = 0; i < batch.Lines.Count; i++)
                 {
                     //VoiceDropの取り込みが追いつくよう、行間に任意の待ち時間を入れる
                     if (i > 0 && batch.Interval_ms > 0) System.Threading.Thread.Sleep(batch.Interval_ms);
 
-                    //行ごとの folder が無ければ、バッチ全体の folder を使う
+                    //行ごとの folder/encoding が無ければ、バッチ全体の指定を使う
                     LineRequest line = batch.Lines[i];
                     if (line != null && string.IsNullOrWhiteSpace(line.Folder)) line.Folder = batch.Folder;
+                    if (line != null && string.IsNullOrWhiteSpace(line.Encoding)) line.Encoding = batch.Encoding;
 
                     try
                     {
@@ -152,14 +158,18 @@ namespace AqT_Utl.Component
                     }
                     catch (VoiceGenerateException ex)
                     {
-                        results.Add(new { index = i, error = ex.Message });
+                        //同名が既にある行は「飛ばした」、それ以外は「失敗」として数える
+                        bool skipped = ex.Code == "exists";
+                        if (skipped) skippedCount++;
+                        results.Add(new { index = i, status = skipped ? "skipped" : "failed", code = ex.Code, error = ex.Message });
                     }
                 }
-                Respond(context.Response, okCount == batch.Lines.Count ? 200 : 207, new { ok = okCount, failed = batch.Lines.Count - okCount, results });
+                int failedCount = batch.Lines.Count - okCount - skippedCount;
+                Respond(context.Response, okCount == batch.Lines.Count ? 200 : 207, new { ok = okCount, skipped = skippedCount, failed = failedCount, results });
                 return;
             }
 
-            Respond(context.Response, 404, new { error = "不明なエンドポイントです: " + method + " " + req.Url.AbsolutePath, help = "GET /help で使い方を表示" });
+            Respond(context.Response, 404, new { code = "not_found", error = "不明なエンドポイントです: " + method + " " + req.Url.AbsolutePath, help = "GET /help で使い方を表示" });
         }
 
         object Help()
@@ -168,7 +178,7 @@ namespace AqT_Utl.Component
             {
                 description = "AquesTalkで音声を生成し、出力フォルダに「プロファイル名_セリフ先頭7文字_タイムスタンプ.wav/.txt」を保存するローカルAPI。VoiceDropがこのフォルダを監視してAviUtl2に自動配置する。",
                 version = Assembly.GetExecutingAssembly().GetName().Version.ToString(),
-                encoding = "リクエストのボディはUTF-8のJSON（Content-Type: application/json; charset=utf-8）",
+                request_encoding = "リクエストのボディはUTF-8のJSON（Content-Type: application/json; charset=utf-8）。出力txtの文字コードは各エンドポイントの encoding で指定",
                 endpoints = new object[]
                 {
                     new { method = "GET",  path = "/",         description = "動作確認（バージョン、AquesTalkPlayerの有無）" },
@@ -184,15 +194,16 @@ namespace AqT_Utl.Component
                             text = "字幕テキスト（必須、txtに保存される）",
                             kana = "AquesTalkに読ませる発音（省略時はtextを読む）",
                             folder = "出力先（省略時は設定の出力フォルダ）。C:\\～ の絶対パス、または出力フォルダからの相対パス。無ければ作成",
-                            filename = "ファイル名・拡張子なし（省略時は「プロファイル名_セリフ先頭7文字_タイムスタンプ」）。同名が既にあればエラー"
+                            filename = "ファイル名・拡張子なし（省略時は「プロファイル名_セリフ先頭7文字_タイムスタンプ」）。同名が既にあれば上書きせず code=exists（HTTP 409）",
+                            encoding = "txtの文字コード。utf-8（BOMなし）か shift_jis（省略時は setting.json の txt_encoding、未設定なら utf-8）"
                         },
                         example = new { profile = "ゆっくりれいむ", text = "今日は晴れ", kana = "きょうははれ", folder = "第3話", filename = "003_れいむ_天気" }
                     },
                     new
                     {
                         method = "POST", path = "/batch",
-                        description = "複数行を上から順に1件ずつ生成する。1行失敗しても残りは続行し、失敗があればHTTP 207",
-                        body = new { lines = "/synthesis と同じ形式の配列（必須）", folder = "全行の出力先（省略可。行ごとの folder が優先）", interval_ms = "行間の待ち時間ミリ秒（省略時0）" },
+                        description = "複数行を上から順に1件ずつ生成する。1行失敗しても残りは続行する。全行成功なら200、それ以外は207。応答の ok/skipped/failed が件数で、results の失敗行には index・status（code=exists なら skipped、それ以外は failed）・code・error が入る",
+                        body = new { lines = "/synthesis と同じ形式の配列（必須）", folder = "全行の出力先（省略可。行ごとの folder が優先）", encoding = "全行のtxt文字コード（省略可。行ごとの encoding が優先）", interval_ms = "行間の待ち時間ミリ秒（省略時0）" },
                         example = new
                         {
                             folder = "第3話",
@@ -206,7 +217,7 @@ namespace AqT_Utl.Component
                     new
                     {
                         method = "POST", path = "/play",
-                        description = "試聴のみ（音が鳴る。ファイルは残らない）。ボディは /synthesis と同じ（folder/filename は無視）",
+                        description = "試聴のみ（音が鳴る。ファイルは残らない）。ボディは /synthesis と同じ（folder/filename/encoding は無視）",
                         example = new { profile = "ゆっくりれいむ", text = "テスト" }
                     }
                 },
@@ -216,32 +227,60 @@ namespace AqT_Utl.Component
                     "生成はUI操作と合わせて直列化される。filename省略時に同名ファイルになる場合はタイムスタンプが進むまで待つ",
                     "VoiceDropに取り込ませるには、folder をVoiceDropの監視フォルダ（またはその配下、VoiceDrop側の設定による）にする",
                     "ポートは setting.json の api_port で変更（0で無効）"
+                },
+                errors = new
+                {
+                    format = "エラー応答は {\"code\":\"識別子\",\"error\":\"日本語の説明\"}。スクリプトは code で判定する",
+                    codes = new
+                    {
+                        exists = "同名の wav/txt が既にある（上書きしない）。/synthesis は409、/batch では skipped",
+                        invalid_filename = "filename に使えない文字がある",
+                        invalid_folder = "folder を作成・使用できない",
+                        invalid_encoding = "encoding が utf-8 / shift_jis 以外",
+                        empty_text = "text が空",
+                        missing_profile = "profile が未指定",
+                        profile_not_found = "profile が見つからない",
+                        generate_failed = "AquesTalkPlayer で音声を作れなかった",
+                        player_not_found = "AquesTalkPlayer.exe が無い",
+                        invalid_output_folder = "設定の出力フォルダが不正",
+                        invalid_json = "リクエストのJSONが不正",
+                        empty_lines = "/batch の lines が空",
+                        not_found = "不明なエンドポイント",
+                        @internal = "想定外のエラー（HTTP 500）"
+                    }
                 }
             };
         }
 
         object Generate(LineRequest line, List<SerifProfile> profiles, bool play)
         {
-            if (line == null || string.IsNullOrEmpty(line.Text)) throw new VoiceGenerateException("textが空です");
+            if (line == null || string.IsNullOrEmpty(line.Text)) throw new VoiceGenerateException("empty_text", "textが空です");
 
             SerifProfile p = FindProfile(line.Profile, profiles);
             string kana = string.IsNullOrEmpty(line.Kana) ? line.Text : line.Kana;
 
-            VoiceGenerateResult r = play
-                ? playerManager.Synthesize(kana, line.Text, p, true, true)
-                : playerManager.Synthesize(kana, line.Text, p, false, false, line.Folder, line.Filename);
+            if (play)
+            {
+                VoiceGenerateResult pr = playerManager.Synthesize(kana, line.Text, p, true, true);
+                return new { profile = p.ProfileName, seconds = Math.Round((decimal)pr.Seconds, 3) };
+            }
+
+            //wavを作ってからtxtで失敗しないよう、文字コードは先に確認する
+            string encodingName = string.IsNullOrWhiteSpace(line.Encoding) ? SettingLoader.TxtEncodingName : line.Encoding;
+            Encoding txtEncoding = TxtEncoding.ParseOrThrow(encodingName);
+
+            VoiceGenerateResult r = playerManager.Synthesize(kana, line.Text, p, false, false, line.Folder, line.Filename, txtEncoding);
             decimal seconds = Math.Round((decimal)r.Seconds, 3);     //doubleのままだと 0.26200000000000001 のように出力される
-            if (play) return new { profile = p.ProfileName, seconds };
-            return new { profile = p.ProfileName, text = line.Text, wav = r.WavPath, txt = r.TxtPath, seconds, frames = r.FrameCount };
+            return new { profile = p.ProfileName, text = line.Text, wav = r.WavPath, txt = r.TxtPath, encoding = txtEncoding.CodePage == 932 ? "shift_jis" : "utf-8", seconds, frames = r.FrameCount };
         }
 
         static SerifProfile FindProfile(string key, List<SerifProfile> profiles)
         {
-            if (string.IsNullOrEmpty(key)) throw new VoiceGenerateException("profileが指定されていません");
+            if (string.IsNullOrEmpty(key)) throw new VoiceGenerateException("missing_profile", "profileが指定されていません");
 
             SerifProfile p = profiles.FirstOrDefault(x => x.ProfileName == key);
             if (p == null && int.TryParse(key, out int id)) p = profiles.FirstOrDefault(x => x.Id == id);
-            if (p == null) throw new VoiceGenerateException("プロファイル「" + key + "」が見つかりません");
+            if (p == null) throw new VoiceGenerateException("profile_not_found", "プロファイル「" + key + "」が見つかりません");
             return p;
         }
 
@@ -283,12 +322,14 @@ namespace AqT_Utl.Component
             public string Kana { get; set; }
             public string Folder { get; set; }
             public string Filename { get; set; }
+            public string Encoding { get; set; }
         }
 
         public class BatchRequest
         {
             public List<LineRequest> Lines { get; set; }
             public string Folder { get; set; }
+            public string Encoding { get; set; }
             public int Interval_ms { get; set; }
         }
     }

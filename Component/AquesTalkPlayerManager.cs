@@ -12,9 +12,39 @@ using NAudio.Wave;
 namespace AqT_Utl
 {
     //音声生成の失敗を表す例外（メッセージはそのままユーザー/APIに返す）
+    //Code はスクリプトが失敗の種類を見分けるための識別子（APIの "code"）
     internal class VoiceGenerateException : Exception
     {
-        public VoiceGenerateException(string message) : base(message) { }
+        public string Code { get; }
+
+        public VoiceGenerateException(string code, string message) : base(message)
+        {
+            Code = code;
+        }
+    }
+
+    //字幕txtの文字コード
+    internal static class TxtEncoding
+    {
+        public const string Default = "utf-8";
+
+        //"utf-8"（BOMなし）か "shift_jis"。表記ゆれは許容し、それ以外は null
+        public static Encoding Parse(string name)
+        {
+            switch ((name ?? "").Trim().ToLowerInvariant().Replace("-", "").Replace("_", ""))
+            {
+                case "utf8": return new UTF8Encoding(false);
+                case "shiftjis":
+                case "sjis":
+                case "cp932": return Encoding.GetEncoding(932);
+                default: return null;
+            }
+        }
+
+        public static Encoding ParseOrThrow(string name)
+        {
+            return Parse(name) ?? throw new VoiceGenerateException("invalid_encoding", "encoding「" + name + "」は使えません（utf-8 か shift_jis）");
+        }
     }
 
     //音声生成の結果
@@ -84,10 +114,11 @@ namespace AqT_Utl
         }
 
         //音声を生成する本体。失敗時は VoiceGenerateException を投げる（UIを出さないのでAPIからも呼べる）
-        //folder/fileName はAPI用。省略時は設定の出力フォルダと既定の命名ルールを使う
-        public VoiceGenerateResult Synthesize(string hatsuon, string jimaku, SerifProfile p, bool interim, bool playSound, string folder = null, string fileName = null)
+        //folder/fileName/txtEncoding はAPI用。省略時は設定の出力フォルダ・既定の命名ルール・設定の文字コードを使う
+        public VoiceGenerateResult Synthesize(string hatsuon, string jimaku, SerifProfile p, bool interim, bool playSound, string folder = null, string fileName = null, Encoding txtEncoding = null)
         {
-            if (PlayerPath == null) throw new VoiceGenerateException("aquestalkplayer/AquesTalkPlayer.exeが見つかりません");
+            if (PlayerPath == null) throw new VoiceGenerateException("player_not_found", "aquestalkplayer/AquesTalkPlayer.exeが見つかりません");
+            if (txtEncoding == null) txtEncoding = TxtEncoding.Parse(Component.SettingLoader.TxtEncodingName) ?? new UTF8Encoding(false);
 
             lock (generateLock)
             {
@@ -169,7 +200,7 @@ namespace AqT_Utl
                 }
                 catch
                 {
-                    throw new VoiceGenerateException("音声ファイルの生成に失敗しました。");
+                    throw new VoiceGenerateException("generate_failed", "音声ファイルの生成に失敗しました。");
                 }
 
                 if (interim)    //仮モード有効時、生成した音声ファイルを削除し終了する
@@ -180,11 +211,8 @@ namespace AqT_Utl
 
                 try
                 {
-                    // Windowsの標準文字コード「Shift-JIS (CodePage: 932)」を指定
-                    System.Text.Encoding sjis = System.Text.Encoding.GetEncoding(932);
-
-                    // 引数で渡ってきた字幕文字列（jimaku）をファイルに上書き保存
-                    System.IO.File.WriteAllText(txtFilepath, jimaku, sjis);
+                    // 字幕文字列（jimaku）を指定の文字コード（既定はUTF-8、setting.jsonやAPIでShift-JISも可）で保存
+                    System.IO.File.WriteAllText(txtFilepath, jimaku, txtEncoding);
                 }
                 catch (System.Exception ex)
                 {
@@ -213,7 +241,7 @@ namespace AqT_Utl
 
             if (Directory.Exists(output_folder)) return output_folder;
 
-            throw new VoiceGenerateException("ボイス生成フォルダの設定が正しくありません。");
+            throw new VoiceGenerateException("invalid_output_folder", "ボイス生成フォルダの設定が正しくありません。");
         }
 
         //API指定の出力先。「C:\～」やUNCはそのまま、それ以外は既定の出力フォルダからの相対パス。無ければ作成する
@@ -230,7 +258,7 @@ namespace AqT_Utl
             }
             catch (Exception ex)
             {
-                throw new VoiceGenerateException("出力先フォルダ「" + folder + "」を使えません: " + ex.Message);
+                throw new VoiceGenerateException("invalid_folder", "出力先フォルダ「" + folder + "」を使えません: " + ex.Message);
             }
             return path;
         }
@@ -243,10 +271,10 @@ namespace AqT_Utl
                 fileName = fileName.Substring(0, fileName.Length - 4);
 
             if (fileName == "" || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-                throw new VoiceGenerateException("ファイル名「" + fileName + "」に使えない文字が含まれています（\\ / : * ? \" < > | など）");
+                throw new VoiceGenerateException("invalid_filename", "ファイル名「" + fileName + "」に使えない文字が含まれています（\\ / : * ? \" < > | など）");
 
             if (File.Exists(Path.Combine(folder, fileName + ".wav")) || File.Exists(Path.Combine(folder, fileName + ".txt")))
-                throw new VoiceGenerateException("「" + fileName + "」は出力先に既にあります（上書きはしません）");
+                throw new VoiceGenerateException("exists", "「" + fileName + "」は出力先に既にあります（上書きはしません）");
 
             return fileName;
         }
